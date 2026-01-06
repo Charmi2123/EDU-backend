@@ -58,9 +58,9 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # -------------------------
-      # Deploy to Staging (SSM)
-      # -------------------------
+     # -------------------------
+# Deploy to Staging (SSM)
+# -------------------------
       - name: Deploy to Staging
         run: |
           aws ssm send-command \
@@ -77,4 +77,3 @@ jobs:
                 "docker run -d --name inai-backend-staging -p 8080:8000 --restart unless-stopped -e ENVIRONMENT=staging '"$ECR_REPOSITORY:$IMAGE_TAG"'"
               ]
             }'
-
