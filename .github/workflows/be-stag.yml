@@ -1,4 +1,4 @@
-name: Backend – Build & Deploy (Staging)
+name: Backend – Build & Push (Staging)
 
 on:
   push:
@@ -9,14 +9,13 @@ env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
   ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
   IMAGE_TAG: ${{ github.sha }}
-  TARGET_INSTANCE_ID: ${{ secrets.STAGING_INSTANCE_ID }}
 
 permissions:
   id-token: write
   contents: read
 
 jobs:
-  staging:
+  build:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -24,7 +23,8 @@ jobs:
       # -------------------------
       # Checkout
       # -------------------------
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       # -------------------------
       # AWS Auth (OIDC)
@@ -44,10 +44,10 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to ECR
+      - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build & Push Image (staging)
+      - name: Build & Push Docker Image (staging)
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -57,23 +57,3 @@ jobs:
             ${{ env.ECR_REPOSITORY }}:staging
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-     # -------------------------
-# Deploy to Staging (SSM)
-# -------------------------
-      - name: Deploy to Staging
-        run: |
-          aws ssm send-command \
-            --document-name "AWS-RunShellScript" \
-            --instance-ids "$TARGET_INSTANCE_ID" \
-            --comment "Deploy BACKEND STAGING $IMAGE_TAG" \
-            --parameters '{
-              "commands": [
-                "set -e",
-                "aws ecr get-login-password --region '"$AWS_REGION"' | docker login --username AWS --password-stdin '"$ECR_REPOSITORY"'",
-                "docker pull '"$ECR_REPOSITORY:$IMAGE_TAG"'",
-                "docker stop inai-backend-staging || true",
-                "docker rm inai-backend-staging || true",
-                "docker run -d --name inai-backend-staging -p 8080:8000 --restart unless-stopped -e ENVIRONMENT=staging '"$ECR_REPOSITORY:$IMAGE_TAG"'"
-              ]
-            }'
